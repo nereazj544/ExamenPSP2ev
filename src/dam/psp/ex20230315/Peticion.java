@@ -1,5 +1,6 @@
 package dam.psp.ex20230315;
 
+import java.beans.beancontext.BeanContext;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -120,9 +121,6 @@ public class Peticion implements Runnable{
                 e.printStackTrace();
             }
                 
-    
-
-
         // try {
         //     algorimo = in.readUTF();
         //     byte [] m = in.readAllBytes();
@@ -149,20 +147,33 @@ public class Peticion implements Runnable{
             String alias = in.readUTF();
             try {
                 String certB64 = in.readUTF();
-
                 //! Decificar
                 byte [] b = Base64.getDecoder().decode(certB64.getBytes());
+                if (b.length > 0) {
+                    
+                    //! Conversion
+                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                    //! Generar el certificado
+                    Certificate c = cf.generateCertificate(new ByteArrayInputStream(b));
+                    Servidor.ks.setCertificateEntry(alias, c);
+                }else{
+                    MessageDigest md;
+                    String hash = Base64.getEncoder().encodeToString(b); 
+                    md = MessageDigest.getInstance("SHA-256");
+                    md.update(certB64.getBytes());
+                    
+                    enviarRespuesta("OK" + hash);
 
-                //! Conversion
-                CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                //! Generar el certificado
-                Certificate c = cf.generateCertificate(new ByteArrayInputStream(b));
-                Servidor.ks.setCertificateEntry(alias, c);
+                    //!j
+                    // enviarRespuesta("OK" + md.getInstance("SHA-256").digest(certB64));
+                }
+
+
             } catch ( EOFException | UTFDataFormatException | SocketTimeoutException e) {
                 enviarRespuesta("ERROR: Se esperaba un certificado.");
             }catch(IllegalArgumentException e){
-                enviarRespuesta("Error: Se esperaba base64");
-            }catch(KeyStoreException | CertificateException e){
+                enviarRespuesta("Error: Se esperaba Base64");
+            }catch(KeyStoreException | CertificateException | NoSuchAlgorithmException e){
                 enviarRespuesta("ERROR: " + e.getLocalizedMessage());
             }
         } catch ( EOFException | UTFDataFormatException | SocketTimeoutException e){

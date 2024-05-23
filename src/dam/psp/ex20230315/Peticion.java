@@ -163,10 +163,9 @@ public class Peticion implements Runnable{
                     md.update(certB64.getBytes());
                     
                     enviarRespuesta("OK" + hash);
-
-                    //!j
-                    // enviarRespuesta("OK" + md.getInstance("SHA-256").digest(certB64));
-                }
+                    //Con una sola sentencia:
+                    // enviarRespuesta(Base64.getEncoder().encodeToString(md.getInstance("SHA-256").digest(certB64.getBytes())));
+            }
 
 
             } catch ( EOFException | UTFDataFormatException | SocketTimeoutException e) {

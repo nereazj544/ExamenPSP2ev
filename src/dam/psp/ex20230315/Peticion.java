@@ -1,19 +1,27 @@
 package dam.psp.ex20230315;
 
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.UTFDataFormatException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.util.Base64;
 
 public class Peticion implements Runnable{
     private Socket socket;
 	private DataOutputStream out;
     private DataInputStream in;
+    // private KeyStore ks;
 	
 	public Peticion(Socket socket) throws IOException {
 		this.socket = socket;
@@ -33,7 +41,7 @@ public class Peticion implements Runnable{
                     break;
             
                 case "cert":
-                    
+                    peticionCert(socket, in, out);
                     break;
             
                 case "cifrar":
@@ -61,6 +69,7 @@ public class Peticion implements Runnable{
 	
 	
 
+    
     private void peticionHash(Socket socket, DataInputStream in, DataOutputStream out) {
         // String algorimo = null;
         //! CLASE
@@ -133,6 +142,35 @@ public class Peticion implements Runnable{
                 
         //     }
         // }
+    }
+    
+    private void peticionCert(Socket socket, DataInputStream in, DataOutputStream out) {
+        try {
+            String alias = in.readUTF();
+            try {
+                String certB64 = in.readUTF();
+
+                //! Decificar
+                byte [] b = Base64.getDecoder().decode(certB64.getBytes());
+
+                //! Conversion
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                //! Generar el certificado
+                Certificate c = cf.generateCertificate(new ByteArrayInputStream(b));
+                Servidor.ks.setCertificateEntry(alias, c);
+            } catch ( EOFException | UTFDataFormatException | SocketTimeoutException e) {
+                enviarRespuesta("ERROR: Se esperaba un certificado.");
+            }catch(IllegalArgumentException e){
+                enviarRespuesta("Error: Se esperaba base64");
+            }catch(KeyStoreException | CertificateException e){
+                enviarRespuesta("ERROR: " + e.getLocalizedMessage());
+            }
+        } catch ( EOFException | UTFDataFormatException | SocketTimeoutException e){
+            enviarRespuesta("ERROR: Se esperaba un alias.");
+        }catch(IOException e){
+            enviarRespuesta("ERROR: " + e.getLocalizedMessage());
+        }
+        
     }
 
     private void enviarRespuesta(String respuesta) {

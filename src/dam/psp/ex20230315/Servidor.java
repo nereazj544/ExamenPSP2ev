@@ -13,23 +13,19 @@ import java.util.concurrent.Executors;
 
 public class Servidor {
 	static KeyStore ks;
-	public static void main(String[] args) throws IOException, KeyStoreException,  NoSuchAlgorithmException, CertificateException{
-		ks =  KeyStore.getInstance(KeyStore.getDefaultType());
+	
+	public static void main(String[] args) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
+		ks = KeyStore.getInstance(KeyStore.getDefaultType());
 		ks.load(null, null);
-		//Primer parametro "Stream" (Alias (creo)), segundo parametro "Password"
 		try (ServerSocket serverSocket = new ServerSocket(9000)) {
 			ExecutorService executor = Executors.newFixedThreadPool(100);
 			System.out.println("Servidor ECHO escuchando en puerto 9000");
 			while (true) {
 				Socket socket = serverSocket.accept();
+				// executor.submit(new Peticion(socket));
 				executor.submit(new Peticion(socket));
 			}
 		}
-		
-	//! END MAIN
 	}
 
-		
-//! END CLASS SERVER
 }
-

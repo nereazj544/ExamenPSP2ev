@@ -22,7 +22,6 @@ public class Servidor {
 			System.out.println("Servidor ECHO escuchando en puerto 9000");
 			while (true) {
 				Socket socket = serverSocket.accept();
-				// executor.submit(new Peticion(socket));
 				executor.submit(new Peticion(socket));
 			}
 		}

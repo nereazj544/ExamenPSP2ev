@@ -8,16 +8,20 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UTFDataFormatException;
 import java.net.Socket;
-import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.security.KeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.Base64;
+
+import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 
 public class Peticion implements Runnable {
     private final Socket socket;
@@ -117,15 +121,42 @@ public class Peticion implements Runnable {
     private void Cifrar() {
         try {
             String alias = in.readUTF();
-            Servidor.ks = KeyStore.getInstance("pkcs12");
-            Servidor.ks.load(new FileInputStream(System.getProperty("user.dir") + "/res/keystore.p12"), "pacticas".toCharArray());
+            try {
+                Certificate cert = Servidor.ks.getCertificate(alias);
+                if (cert != null) {
+                    PublicKey cerKey = cert.getPublicKey();
+                    if (cerKey.getAlgorithm().equals("RSA")) {
+                        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                        cipher.init(Cipher.ENCRYPT_MODE, Servidor.ks.getCertificate(alias).getPublicKey());
+                    }else{
+                        Respuesta("ERROR: 'alias' no contiene una clave RSA");
+                    }
+                    
+                }else{
+                    Respuesta(String.format("Error: %s no es un certificado", alias));
+                }
 
-            byte [] l = in.readAllBytes();
-        } catch (Exception e) {
+            } catch (KeyStoreException e) {
+                // TODO Auto-generated catch block
+                Respuesta("Error:" + e.getLocalizedMessage());
+            }catch(NoSuchPaddingException | NoSuchAlgorithmException | KeyException e){
+                Respuesta("Error: Se esperaban datos");
+            }
             
+        } catch (SocketTimeoutException e) {
+            Respuesta("ERROR: Read timed out");
+        }catch(EOFException e){
+            Respuesta("Error: Se esperaba un alias");
+        }catch(UTFDataFormatException e){
+            //! En el examen no haria falta ponerla
+            Respuesta("Error: Se esperaba un alias correcte");
+        }catch(IOException e){
+            Respuesta("Error:" + e.getLocalizedMessage());
         }
     }
 
+
+    
     private void Respuesta(String respuesta) {
         System.out.println(socket.getInetAddress() + " -> " + respuesta);
         try (socket) {

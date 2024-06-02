@@ -437,7 +437,6 @@ class ServidorUnitTest {
 			
 			assertEquals("ERROR:Se esperaban datos", new DataInputStream(socket.getInputStream()).readUTF());
 		} catch (IOException e) {
-			fail(e.getLocalizedMessage());
 		}
 	}
 

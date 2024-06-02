@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.UTFDataFormatException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.security.InvalidKeyException;
 import java.security.KeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -20,7 +21,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.Base64;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 
 public class Peticion implements Runnable {
@@ -40,7 +43,7 @@ public class Peticion implements Runnable {
         System.out.println("Conectado con " + socket.getInetAddress());
         try {
             String p = in.readUTF();
-
+            Respuesta(p);
             switch (p) {
                 case "hash":
                     Hash();
@@ -118,45 +121,48 @@ public class Peticion implements Runnable {
             }
     }
 
-    private void Cifrar() {
-        try {
-            String alias = in.readUTF();
+    private void Cifrar()   {
             try {
-                Certificate cert = Servidor.ks.getCertificate(alias);
-                if (cert != null) {
-                    PublicKey cerKey = cert.getPublicKey();
-                    if (cerKey.getAlgorithm().equals("RSA")) {
+                String alias = in.readUTF();
+                byte[] l = in.readAllBytes();
+
+                Certificate certificate = Servidor.ks.getCertificate(alias);
+                if (certificate != null) {
+                    PublicKey publicKey = certificate.getPublicKey();
+                    if (publicKey.getAlgorithm().equals("RSA")) {
                         Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                         cipher.init(Cipher.ENCRYPT_MODE, Servidor.ks.getCertificate(alias).getPublicKey());
-                    }else{
-                        Respuesta("ERROR: 'alias' no contiene una clave RSA");
+
+                        int n = 0;
+                        byte[] b = new byte[256];
+                        boolean aux = false;
+
+                        try (ByteArrayInputStream byin = new ByteArrayInputStream(l)) {
+                            while ((n = byin.read(b)) != -1) {
+                                aux = true;
+                                byte[] by = cipher.doFinal(b, 0, n);
+                                String hashb64 = Base64.getEncoder().encodeToString(by);
+
+                                Respuesta("Ok: " + hashb64);
+
+                                if (aux == true) {
+                                    Respuesta("FIN");
+                                }
+                            }
+                        } catch (IllegalBlockSizeException | BadPaddingException e) {
+                            Respuesta("Error: Se esperaban datos");
+                        }
                     }
-                    
-                }else{
-                    Respuesta(String.format("Error: %s no es un certificado", alias));
                 }
 
-            } catch (KeyStoreException e) {
-                // TODO Auto-generated catch block
-                Respuesta("Error:" + e.getLocalizedMessage());
-            }catch(NoSuchPaddingException | NoSuchAlgorithmException | KeyException e){
-                Respuesta("Error: Se esperaban datos");
+            } catch(SocketTimeoutException e){
+                Respuesta("ERROR: tiempo de respues agotado");
             }
-            
-        } catch (SocketTimeoutException e) {
-            Respuesta("ERROR: Read timed out");
-        }catch(EOFException e){
-            Respuesta("Error: Se esperaba un alias");
-        }catch(UTFDataFormatException e){
-            //! En el examen no haria falta ponerla
-            Respuesta("Error: Se esperaba un alias correcte");
-        }catch(IOException e){
-            Respuesta("Error:" + e.getLocalizedMessage());
-        }
+            catch (IOException | KeyStoreException | NoSuchAlgorithmException  | InvalidKeyException | NoSuchPaddingException  e) {
+                Respuesta("Error: " + e.getLocalizedMessage());
+            }
     }
 
-
-    
     private void Respuesta(String respuesta) {
         System.out.println(socket.getInetAddress() + " -> " + respuesta);
         try (socket) {
